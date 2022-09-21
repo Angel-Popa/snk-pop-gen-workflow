@@ -1,0 +1,50 @@
+# Variant calling with bcftools
+
+rule bcf_call:
+    input:
+        fa = "data/results/genome/genome.fa",
+        bam = "data/results/mapped_filtered/{species}.{population}.{individual}.bam",
+        bai = "data/results/mapped_filtered/{species}.{population}.{individual}.bam.bai",
+    output:
+        bcf = "data/results/bcf_ind/{species}.{population}.{individual}.bcf",
+    log:
+        "logs/bcftools_call/{species}.{population}.{individual}.log",
+    benchmark:
+        "benchmark/bcftools_call/{species}.{population}.{individual}.tsv",
+    resources:
+        time = parameters["bcf_calls"]["time"],
+    shell:
+        "bcftools mpileup -f {input.fa} {input.bam} | "
+        "bcftools call -mv -Ou -o {output.bcf} 2> {log}"
+
+rule bcf_merge:
+    input:
+        get_files_bcf,
+    output:
+        "data/results/bcf_merge/call.bcf",
+    log:
+        "logs/bcftools_merge/call.bcf",
+    benchmark:
+        "benchmark/bcf_merge/bcf_merge.tsv",
+    resources:
+        time = parameters["bcf_calls"]["time"],
+    shell:
+        "bcftools merge -m all -t {input} -Ou -o {output}"
+
+rule vcf_filtering:
+    input:
+        bcf = "data/results/bcf_merge/call.bcf",
+    output:
+        vcf = "data/results/vcf_filtering/call_filtered-Q20.vcf",
+    log:
+        "logs/bcftools_filtering/call_filtered-Q20.log",
+    benchmark:
+        "benchmark/bcf_filtering/bcf_filtering.tsv"
+    resources:
+        time = parameters["bcf_calls"]["time"],
+    shell:
+        "bcftools view -i '%QUAL>=20' {input.bcf} -Ou -o {output.vcf}"
+
+rule vcf:
+    input:
+        "data/results/vcf_filtering/call_filtered-Q20.vcf"

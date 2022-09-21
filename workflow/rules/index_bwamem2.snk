@@ -1,0 +1,14 @@
+# index the reference genome
+
+rule map_bwa_mem2_index:
+    input:
+        fa = "data/results/genome/genome.fa"
+    output:
+        mock = touch("data/results/genome/genome"),
+        buckets = expand("data/results/genome/genome.{suffix}", suffix="0123 amb ann bwt.2bit.64 pac".split()),
+    log:
+        "logs/bwa_index/bwa_index.log",
+    benchmark:
+        "benchmark/bwa_index/bwa_index.tsv",
+    shell:
+        "bwa-mem2 index -p {output.mock} {input.fa} 2> {log} 2>&1"

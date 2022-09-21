@@ -1,0 +1,49 @@
+# Parameters for the executions of each tool and rules; 
+
+reference:
+  genome: .test/data/genome/BtryS06_GCA_016617805.2.fna.gz
+
+trimmomatic:
+    time: "10:00:00"
+    mem_gb: 100
+    threads: 10
+    extra: >
+        AVGQUAL:3
+        MINLEN:31
+        LEADING:19
+        TRAILING:19
+        MINLEN:31
+        SLIDINGWINDOW:4:5
+        LEADING:5
+        TRAILING:5
+        MINLEN:25
+        TOPHRED33
+
+bwa_index:
+    time: "02:00:00"
+    mem_gb: 100
+
+bwa_mem2:
+    time: "120:00:00"
+    mem_gb: 100
+    threads: 20
+    extra: ""
+
+samtools_index:
+    time: "120:00:00"
+
+samtools_split:
+    time: "120:00:00"
+
+duplicated_filter:
+    time: "120:00:00"
+
+samtools_index_filtered:
+    time: "120:00:00"
+
+picard_markduplicates:
+    memory_gb: 100
+
+bcf_calls:
+    time: "120:00:00"
+

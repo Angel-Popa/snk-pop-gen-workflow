@@ -1,0 +1,44 @@
+# Travis configuration file
+---
+dist: trusty
+
+language: bash
+
+addons:
+    apt_packages:
+        - build-essential
+        - git
+        - curl
+
+cache:
+    timeout: 1000
+    directories:
+        - "/scratch1/$USER/mambaforge"
+        - "$TRAVIS_BUILD_DIR/.snakemake/conda"  # snakemake envs
+
+before_install: |
+    url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+    if [[ -d /scratch1/"$USER"/mambaforge/bin/ ]]; then
+        echo "mamba already installed."
+    else
+        echo "Installing mamba."
+        mkdir -p "$HOME"/download
+        wget $url
+        chmod +x "$HOME"/download/Mambaforge-$(uname)-$(uname -m).sh
+        "$HOME"/download/Mambaforge-$(uname)-$(uname -m).sh -p /scratch1/"$USER"
+        /scratch1/"$USER"/mambaforge/bin/conda clean --all --yes
+    fi
+install: |
+    export PATH=/scratch1/"$USER"/mambaforge/bin/:"$PATH"
+    echo "$PATH"
+    conda config --add channels defaults
+    conda config --add channels bioconda
+    conda config --add channels conda-forge
+    conda create -q --yes -c bioconda -n pop-gen-workflow snakemake
+    conda activate pop-gen-workflow
+    snakemake --use-conda --conda-create-envs-only
+    conda clean --all --yes
+script: |
+    conda activate pop-gen-workflow
+    snakemake --resources memory_gb=3 --use-conda --cores 4
+after_failure:

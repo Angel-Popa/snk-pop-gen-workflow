@@ -1,0 +1,34 @@
+# This are the preliminary steps on the workflow.
+# 1. rename all the files to a more relatable name
+# 2. create symlinks for each file to avoid overwriting them (This also help to keep the files,
+#    in for example the resouce folder, thus the raw data is always protected.
+# 3. Rename and extract the compressed reference genome.
+
+## Make symlinks for 
+
+rule make_symlinks:
+    input:
+        get_sequences
+    output:
+        R1 = "data/results/raw/{species}.{population}.{individual}_1.fq.gz",
+        R2 = "data/results/raw/{species}.{population}.{individual}_2.fq.gz",
+    log:
+        R1 = "logs/make_symlinks/{species}.{population}.{individual}_1.log",
+        R2 = "logs/make_symlinks/{species}.{population}.{individual}_2.log",
+    shell:
+        """
+        ln --symbolic $(readlink --canonicalize {input[0]}) {output.R1} > {log.R1} 2>&1
+        ln --symbolic $(readlink --canonicalize {input[1]}) {output.R2} > {log.R2} 2>&1
+        """
+##
+rule raw_extract_genome:
+    input:
+        fa = parameters["reference"]["genome"],
+    output:
+        fa = "data/results/genome/genome.fa",
+    log:
+        "logs/genome/genome.log",
+    benchmark:
+        "benchmark/genome/genome.tsv",
+    shell:
+        "gzip --decompress --stdout {input.fa} > {output.fa} 2> {log} 2>&1"

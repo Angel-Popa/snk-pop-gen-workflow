@@ -1,0 +1,115 @@
+# Genome mapping with BWA-MEM2
+
+rule bwa_mem2_mem:
+    input:
+        R1 = "data/results/qc/{species}.{population}.{individual}_1.fq.gz",
+        R2 = "data/results/qc/{species}.{population}.{individual}_2.fq.gz", 
+        R1_unp = "data/results/qc/{species}.{population}.{individual}_1_unp.fq.gz",
+        R2_unp = "data/results/qc/{species}.{population}.{individual}_2_unp.fq.gz",
+        idx= "data/results/genome/genome",
+        ref = "data/results/genome/genome.fa"
+    output:
+        bam = "data/results/mapped_reads/{species}.{population}.{individual}.bam",
+    log:
+        sam ="logs/samtools_view/{species}.{population}.{individual}.log",
+    benchmark:
+        "benchmark/bwa_mem2_mem/{species}.{population}.{individual}.tsv",
+    resources:
+        time = "100:00:00",
+        mem_gb = 250,
+    params:
+        extra = parameters["bwa_mem2"]["extra"],
+        tag = compose_rg_tag,
+    threads:
+        parameters["bwa_mem2"]["threads"],
+    shell:
+        "bwa-mem2 mem -t {threads} -R '{params.tag}' {params.extra} {input.idx} {input.R1} {input.R2} | "
+        "samtools sort -o {output.bam} --reference {input.ref} -@ {threads} /dev/stdin 2> {log.sam}"
+
+rule samtools_index:
+    input:
+        bam = "data/results/mapped_reads/{species}.{population}.{individual}.bam",
+    output:
+        "data/results/mapped_reads/{species}.{population}.{individual}.bam.bai",
+    resources:
+        time = parameters["samtools_index"]["time"]
+    shell:
+        "samtools index {input.bam}"
+    
+rule duplicated_split:
+    input:
+        bam = "data/results/mapped_reads/{species}.{population}.{individual}.bam",
+        bai = "data/results/mapped_reads/{species}.{population}.{individual}.bam.bai",
+        ref = "data/results/genome/genome.fa"
+    output:
+        bam = temp("data/results/mapped_split/{species}.{population}.{individual}.bam"),
+    log:
+        "logs/samtools_split/{species}.{population}.{individual}.log",
+    benchmark:
+        "benchmark/samtools_split/{species}.{population}.{individual}.tsv",
+    resources:
+        time = parameters["samtools_split"]["time"]
+    shell:
+        """
+        samtools view \
+            -u \
+            -T {input.ref} \
+            -o {output.bam} \
+            {input.bam}
+            2> {log}
+        """
+
+rule duplicated_filter:
+    input:
+        bam = "data/results/mapped_split/{species}.{population}.{individual}.bam",
+        ref = "data/results/genome/genome.fa",
+    output:
+        cram = protected("data/results/mapped_filtered/{species}.{population}.{individual}.bam"),
+        dupstats =  "data/results/mapped_split/{species}.{population}.{individual}.dupstats",
+    log:
+        "logs/duplicated_filter/{species}.{population}.{individual}.log",
+    benchmark:
+        "benchmark/duplicated_filter/{species}.{population}.{individual}.tsv",
+    resources:
+        memory_gb = parameters["picard_markduplicates"]["memory_gb"],
+        time = parameters["duplicated_filter"]["time"]
+    shell:
+        """
+        (picard -Xmx{resources.memory_gb}g MarkDuplicates \
+            INPUT={input.bam} \
+            OUTPUT=/dev/stdout \
+            METRICS_FILE={output.dupstats} \
+            ASSUME_SORT_ORDER=coordinate \
+            VALIDATION_STRINGENCY=SILENT \
+            COMPRESSION_LEVEL=0 \
+            REMOVE_DUPLICATES=true \
+            QUIET=false \
+        | samtools view \
+            -q 20 \
+            -f 0x0002  `# read mapped in proper pair. Leave only` \
+            -F 0x0004  `# read unmapped. Throw away` \
+            -F 0x0008  `# mate unmapped. Throw away` \
+            -u \
+            - \
+        | samtools sort \
+            -l 9 \
+            -o {output.cram} \
+            --reference {input.ref} \
+            --output-fmt CRAM \
+            /dev/stdin \
+        ) 2> {log}
+        """
+
+rule samtools_index_filtered:
+    input:
+        "data/results/mapped_filtered/{species}.{population}.{individual}.bam",
+    output:
+        "data/results/mapped_filtered/{species}.{population}.{individual}.bam.bai",
+    resources:
+        time = parameters["samtools_index_filtered"]["time"]
+    script:
+        "samtools index {input}"
+
+rule map:
+    input:
+        "data/results/vcf_filtering/call_filtered-Q20.vcf"

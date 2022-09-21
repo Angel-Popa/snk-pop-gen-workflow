@@ -1,0 +1,40 @@
+
+rule qc_trimmomatic:
+    input:
+        R1 = "data/results/raw/{species}.{population}.{individual}_1.fq.gz",
+        R2 = "data/results/raw/{species}.{population}.{individual}_2.fq.gz",
+    output:
+        R1 = "data/results/qc/{species}.{population}.{individual}_1.fq.gz",
+        R2 = "data/results/qc/{species}.{population}.{individual}_2.fq.gz",
+        R1_unp = "data/results/qc/{species}.{population}.{individual}_1_unp.fq.gz",
+        R2_unp = "data/results/qc/{species}.{population}.{individual}_2_unp.fq.gz",
+    params:
+        adaptor = get_adaptor,
+        phred = get_phred,
+        trimmomatic_params = get_trimmomatic_params
+    log:
+        "logs/trimmomatic_pe/{species}.{population}.{individual}.trimmomatic_pe.log"
+    benchmark:
+        "benchmark/trimmomatic_pe/{species}.{population}.{individual}.trimmomatic_pe.json"
+    threads:
+        parameters["trimmomatic"]["threads"],
+    resources:
+        time = parameters["trimmomatic"]["time"],
+        mem_gb = parameters["trimmomatic"]["mem_gb"],
+    priority:
+        50  # Default is 0, so anything higher will be executed first over all rules 
+    shell:
+        """
+        trimmomatic PE \
+            -threads {threads} \
+            -{params.phred} \
+            {input.R1} \
+            {input.R2} \
+            {output.R1} \
+            {output.R1_unp} \
+            {output.R2} \
+            {output.R2_unp} \
+            ILLUMINACLIP:{params.adaptor}:2:30:10 \
+            {params.trimmomatic_params} \
+        2> {log} 1>&2
+        """
