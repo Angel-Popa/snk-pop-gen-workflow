@@ -1,0 +1,17 @@
+channels:
+  - bioconda
+  - conda-forge
+  - default
+dependencies:
+  - snakemake
+  - snakedeploy
+  - snakefmt
+  - jinja2
+  - matplotlib
+  - graphviz
+  - bcftools >=1.15
+  - samtools >=1.15
+  - pygments
+  - trimmomatic >=0.39
+  - bwa-mem2==2.2.1
+  - picard=2.7.1
